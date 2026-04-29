@@ -427,6 +427,12 @@ async function buildContainerArgs(
   // Everything NanoClaw-specific is in container.json (read by runner at startup).
   args.push('-e', `TZ=${TIMEZONE}`);
 
+  // Pass through to spawned agent container if set in orchestrator env.
+  // The agent-runner registers the trmm HTTP MCP server when this is non-empty.
+  if (process.env.TRMM_MCP_URL) {
+    args.push('-e', `TRMM_MCP_URL=${process.env.TRMM_MCP_URL}`);
+  }
+
   // Provider-contributed env vars (e.g. XDG_DATA_HOME, OPENCODE_*, NO_PROXY).
   if (providerContribution.env) {
     for (const [key, value] of Object.entries(providerContribution.env)) {

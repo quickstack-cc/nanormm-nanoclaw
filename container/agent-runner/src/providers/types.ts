@@ -49,11 +49,20 @@ export interface QueryInput {
   };
 }
 
-export interface McpServerConfig {
+export interface McpStdioServerConfig {
   command: string;
   args: string[];
   env: Record<string, string>;
 }
+
+export interface McpHttpServerConfig {
+  type: 'http';
+  url: string;
+  headers?: Record<string, string>;
+}
+
+/** Union of all supported MCP server transport configs. */
+export type McpServerConfig = McpStdioServerConfig | McpHttpServerConfig;
 
 export interface AgentQuery {
   /** Push a follow-up message into the active query. */

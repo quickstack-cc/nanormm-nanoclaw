@@ -32,6 +32,7 @@ import { buildSystemPromptAddendum } from './destinations.js';
 import './providers/index.js';
 import { createProvider, type ProviderName } from './providers/factory.js';
 import { runPollLoop } from './poll-loop.js';
+import type { McpServerConfig } from './providers/types.js';
 
 function log(msg: string): void {
   console.error(`[agent-runner] ${msg}`);
@@ -73,7 +74,8 @@ async function main(): Promise<void> {
   const mcpServerPath = path.join(__dirname, 'mcp-tools', 'index.ts');
 
   // Build MCP servers config: nanoclaw built-in + any from container.json
-  const mcpServers: Record<string, { command: string; args: string[]; env: Record<string, string> }> = {
+  // + optional trmm HTTP MCP server when TRMM_MCP_URL is set in env.
+  const mcpServers: Record<string, McpServerConfig> = {
     nanoclaw: {
       command: 'bun',
       args: ['run', mcpServerPath],
@@ -84,6 +86,17 @@ async function main(): Promise<void> {
   for (const [name, serverConfig] of Object.entries(config.mcpServers)) {
     mcpServers[name] = serverConfig;
     log(`Additional MCP server: ${name} (${serverConfig.command})`);
+  }
+
+  // trmm-mcp HTTP server — only registered when TRMM_MCP_URL is set.
+  // Empty / unset disables the entry so dev environments without the bridge
+  // work unchanged.
+  if (process.env.TRMM_MCP_URL) {
+    mcpServers.trmm = {
+      type: 'http' as const,
+      url: process.env.TRMM_MCP_URL,
+    };
+    log(`trmm MCP server registered at ${process.env.TRMM_MCP_URL}`);
   }
 
   const provider = createProvider(providerName, {
