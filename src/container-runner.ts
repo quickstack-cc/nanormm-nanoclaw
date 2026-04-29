@@ -433,6 +433,14 @@ async function buildContainerArgs(
     args.push('-e', `TRMM_MCP_URL=${process.env.TRMM_MCP_URL}`);
   }
 
+  // Forward Vertex AI env to agent containers so Claude Agent SDK uses Vertex via ADC
+  if (process.env.CLAUDE_CODE_USE_VERTEX === '1') {
+    args.push('-e', 'CLAUDE_CODE_USE_VERTEX=1');
+    if (process.env.ANTHROPIC_VERTEX_PROJECT_ID) args.push('-e', 'ANTHROPIC_VERTEX_PROJECT_ID=' + process.env.ANTHROPIC_VERTEX_PROJECT_ID);
+    if (process.env.CLOUD_ML_REGION) args.push('-e', 'CLOUD_ML_REGION=' + process.env.CLOUD_ML_REGION);
+    if (process.env.ANTHROPIC_DEFAULT_MODEL) args.push('-e', 'ANTHROPIC_DEFAULT_MODEL=' + process.env.ANTHROPIC_DEFAULT_MODEL);
+  }
+
   // Provider-contributed env vars (e.g. XDG_DATA_HOME, OPENCODE_*, NO_PROXY).
   if (providerContribution.env) {
     for (const [key, value] of Object.entries(providerContribution.env)) {
