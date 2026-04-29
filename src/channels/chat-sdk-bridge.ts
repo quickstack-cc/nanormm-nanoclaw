@@ -441,6 +441,16 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
       await adapter.startTyping(tid);
     },
 
+    async resolveChannelName(platformId: string): Promise<string | null> {
+      if (!adapter.fetchThread) return null;
+      try {
+        const info = await adapter.fetchThread(platformId);
+        return (info as { channelName?: string }).channelName ?? null;
+      } catch {
+        return null;
+      }
+    },
+
     async teardown() {
       gatewayAbort?.abort();
       await chat.shutdown();

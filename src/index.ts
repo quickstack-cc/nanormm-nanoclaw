@@ -9,6 +9,7 @@ import path from 'path';
 import { DATA_DIR } from './config.js';
 import { migrateGroupsToClaudeLocal } from './claude-md-compose.js';
 import { initDb } from './db/connection.js';
+import { getMessagingGroupByPlatform, updateMessagingGroup } from './db/messaging-groups.js';
 import { runMigrations } from './db/migrations/index.js';
 import { ensureContainerRuntimeRunning, cleanupOrphans } from './container-runtime.js';
 import { startActiveDeliveryPoll, startSweepDeliveryPoll, setDeliveryAdapter, stopDeliveryPolls } from './delivery.js';
@@ -101,12 +102,16 @@ async function main(): Promise<void> {
         });
       },
       onMetadata(platformId, name, isGroup) {
-        log.info('Channel metadata discovered', {
-          channelType: adapter.channelType,
-          platformId,
-          name,
-          isGroup,
-        });
+        const mg = getMessagingGroupByPlatform(adapter.channelType, platformId);
+        if (mg) {
+          const updates: Parameters<typeof updateMessagingGroup>[1] = {};
+          if (name && !mg.name) updates.name = name;
+          if (isGroup !== undefined && mg.is_group !== (isGroup ? 1 : 0)) updates.is_group = isGroup ? 1 : 0;
+          if (Object.keys(updates).length > 0) {
+            updateMessagingGroup(mg.id, updates);
+            log.info('Channel metadata persisted', { channelType: adapter.channelType, platformId, ...updates });
+          }
+        }
       },
       onAction(questionId, selectedOption, userId) {
         dispatchResponse({
