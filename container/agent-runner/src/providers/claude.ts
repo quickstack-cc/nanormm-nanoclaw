@@ -32,6 +32,14 @@ const SDK_DISALLOWED_TOOLS = [
   'ExitPlanMode',
   'EnterWorktree',
   'ExitWorktree',
+  // qsrmm/nanormm: recon and other write-tool-using agents must surface human
+  // approval via the bridge's nanormm_card envelope (returned by policy-gated
+  // write tools), not by calling the nanoclaw-native ask_user_question. The
+  // two paths produce indistinguishable Slack cards but only the bridge path
+  // routes the click back to /api/nanoclaw/actions/execute/. Blocking
+  // ask_user_question forces the agent down the working path. Re-enable
+  // per-group when a non-action clarification use case shows up.
+  'mcp__nanoclaw__ask_user_question',
 ];
 
 // Tool allowlist for NanoClaw agent containers
