@@ -92,11 +92,16 @@ async function main(): Promise<void> {
   // Empty / unset disables the entry so dev environments without the bridge
   // work unchanged.
   if (process.env.TRMM_MCP_URL) {
+    const headers: Record<string, string> = {};
+    if (process.env.NANOCLAW_SESSION_ID) {
+      headers['X-Nanoclaw-Session'] = process.env.NANOCLAW_SESSION_ID;
+    }
     mcpServers.trmm = {
       type: 'http' as const,
       url: process.env.TRMM_MCP_URL,
+      ...(Object.keys(headers).length > 0 ? { headers } : {}),
     };
-    log(`trmm MCP server registered at ${process.env.TRMM_MCP_URL}`);
+    log(`trmm MCP server registered at ${process.env.TRMM_MCP_URL} (sessionHeader=${headers['X-Nanoclaw-Session'] ?? '<absent>'})`);
   }
 
   const provider = createProvider(providerName, {
