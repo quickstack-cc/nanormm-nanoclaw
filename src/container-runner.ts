@@ -128,6 +128,7 @@ async function spawnContainer(session: Session): Promise<void> {
   const args = await buildContainerArgs(
     mounts,
     containerName,
+    session.id,
     agentGroup,
     containerConfig,
     provider,
@@ -415,6 +416,7 @@ function ensureRuntimeFields(
 async function buildContainerArgs(
   mounts: VolumeMount[],
   containerName: string,
+  sessionId: string,
   agentGroup: AgentGroup,
   containerConfig: import('./container-config.js').ContainerConfig,
   provider: string,
@@ -432,6 +434,10 @@ async function buildContainerArgs(
   if (process.env.TRMM_MCP_URL) {
     args.push('-e', `TRMM_MCP_URL=${process.env.TRMM_MCP_URL}`);
   }
+
+  // Per-session id, surfaced into the trmm MCP request header so the bridge
+  // can route inject-card calls back to this session's outbound queue.
+  args.push('-e', `NANOCLAW_SESSION_ID=${sessionId}`);
 
   // Forward Vertex AI env to agent containers so Claude Agent SDK uses Vertex via ADC
   if (process.env.CLAUDE_CODE_USE_VERTEX === '1') {
