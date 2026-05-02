@@ -3,17 +3,14 @@
  *
  * Claims onAction events whose questionId starts with `nrmact-` and POSTs
  * the corresponding action_id to the approval-bridge's
- * /api/nanoclaw/actions/execute/ endpoint with Bearer auth and Slack user
- * attribution headers.
- *
- * Reject (value !== 'approve') currently no-ops here — the click is claimed
- * and chat-sdk-bridge updates the card visually, but we don't call the
- * bridge's /reject/ endpoint. Plan 4+ may wire that.
+ * /api/nanoclaw/actions/execute/ or /api/nanoclaw/actions/reject/ endpoint
+ * with Bearer auth and Slack user attribution headers.
  */
 import { readEnvFile } from '../../env.js';
 import { log } from '../../log.js';
 import { registerResponseHandler } from '../../response-registry.js';
 import type { ResponsePayload } from '../../response-registry.js';
+import { startInternalServer } from './internal-server.js';
 
 const QUESTION_ID_PREFIX = 'nrmact-';
 
@@ -27,37 +24,46 @@ async function handleNanormmResponse(payload: ResponsePayload): Promise<boolean>
   const actionId = payload.questionId.slice(QUESTION_ID_PREFIX.length);
   const userId = payload.userId ?? '';
 
-  if (payload.value !== 'approve') {
-    log.info('nanormm action rejected (claimed, no bridge call)', { actionId, userId });
+  if (!API_KEY) {
+    log.error('NANORMM_BRIDGE_API_KEY missing; cannot complete action', { actionId });
     return true;
   }
 
-  if (!API_KEY) {
-    log.error('NANORMM_BRIDGE_API_KEY missing; cannot execute approved action', { actionId });
-    return true;
-  }
+  const isApprove = payload.value === 'approve';
+  const path = isApprove ? 'execute' : 'reject';
+  const body = isApprove
+    ? { token: actionId }
+    : { token: actionId, reason: 'declined via Slack' };
 
   try {
-    const res = await fetch(`${BRIDGE_URL}/api/nanoclaw/actions/execute/`, {
+    const res = await fetch(`${BRIDGE_URL}/api/nanoclaw/actions/${path}/`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${API_KEY}`,
         'Content-Type': 'application/json',
         'X-Slack-User-ID': userId,
       },
-      body: JSON.stringify({ token: actionId }),
+      body: JSON.stringify(body),
     });
-    const body = (await res.json()) as Record<string, unknown>;
+    const respBody = (await res.json()) as Record<string, unknown>;
     if (res.ok) {
-      log.info('nanormm action executed', { actionId, userId, message: body.message });
+      log.info(`nanormm action ${isApprove ? 'executed' : 'rejected'}`,
+        { actionId, userId, message: respBody.message });
     } else {
-      log.warn('nanormm action execution failed', { actionId, status: res.status, error: body.error });
+      log.warn(`nanormm action ${path} failed`,
+        { actionId, status: res.status, error: respBody.error });
     }
   } catch (err) {
-    log.error('nanormm bridge call errored', { actionId, err });
+    log.error(`nanormm bridge ${path} call errored`, { actionId, err });
   }
   return true;
 }
 
 registerResponseHandler(handleNanormmResponse);
 log.info('nanormm bridge response handler registered');
+
+// Start the localhost-bound inject endpoint so the bridge can post approval cards.
+// Errors are swallowed-and-logged; nanoclaw stays up if the listener can't bind.
+startInternalServer().catch((err) => {
+  log.error('nanormm-bridge internal server failed to start', { err });
+});
