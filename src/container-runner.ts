@@ -456,19 +456,23 @@ async function buildContainerArgs(
   }
 
   // OneCLI gateway — injects HTTPS_PROXY + certs so container API calls
-  // are routed through the agent vault for credential injection.
-  try {
-    if (agentIdentifier) {
-      await onecli.ensureAgent({ name: agentGroup.name, identifier: agentIdentifier });
+  // are routed through the agent vault for credential injection. Skipped
+  // when ONECLI_API_KEY isn't set; without a key the SDK 401s on every
+  // ensureAgent call against the public app.onecli.sh fallback URL.
+  if (ONECLI_API_KEY) {
+    try {
+      if (agentIdentifier) {
+        await onecli.ensureAgent({ name: agentGroup.name, identifier: agentIdentifier });
+      }
+      const onecliApplied = await onecli.applyContainerConfig(args, { addHostMapping: false, agent: agentIdentifier });
+      if (onecliApplied) {
+        log.info('OneCLI gateway applied', { containerName });
+      } else {
+        log.warn('OneCLI gateway not applied — container will have no credentials', { containerName });
+      }
+    } catch (err) {
+      log.warn('OneCLI gateway error — container will have no credentials', { containerName, err });
     }
-    const onecliApplied = await onecli.applyContainerConfig(args, { addHostMapping: false, agent: agentIdentifier });
-    if (onecliApplied) {
-      log.info('OneCLI gateway applied', { containerName });
-    } else {
-      log.warn('OneCLI gateway not applied — container will have no credentials', { containerName });
-    }
-  } catch (err) {
-    log.warn('OneCLI gateway error — container will have no credentials', { containerName, err });
   }
 
   // Host gateway
