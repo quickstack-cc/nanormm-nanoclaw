@@ -17,9 +17,14 @@
 // registerApprovalHandler / requestApproval symbols are bound when self-mod
 // registers its handlers at import time.
 import './approvals/index.js';
+// nanormm-bridge must load BEFORE interactive: both register response
+// handlers, registry runs in load order, and only nanormm-bridge claims
+// nrmact-* prefixes. If interactive ran first it would claim every click
+// (its handler is prefix-blind, just keys off pending_questions rows) and
+// nanormm-bridge would never see the approval/reject events.
+import './nanormm-bridge/index.js';
 import './interactive/index.js';
 import './scheduling/index.js';
 import './permissions/index.js';
 import './agent-to-agent/index.js';
 import './self-mod/index.js';
-import './nanormm-bridge/index.js';
